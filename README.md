@@ -34,6 +34,20 @@ Crack DSA directly targets these gaps.
 
 ## Core Capabilities
 
+### Sandboxed Code Execution (NEW)
+
+Crack DSA now integrates **E2B sandbox execution**.
+
+- Run your own code safely
+- Validate correctness and edge cases
+- Iterate quickly
+
+**Critical Constraint:**  
+The AI still does NOT generate full solutions.
+
+> You write the code. The system helps you think.
+
+
 ### Teaching Mode
 - Concept-first explanations (no code)
 - Analogies, intuition, ASCII diagrams
@@ -62,21 +76,6 @@ No spoon-feeding.
 ### Targeted Remediation
 - Auto-detect weak topics (<60%)
 - Generate focused drills
-
----
-
-## Sandboxed Code Execution (NEW)
-
-Crack DSA now integrates **E2B sandbox execution**.
-
-- Run your own code safely
-- Validate correctness and edge cases
-- Iterate quickly
-
-**Critical Constraint:**  
-The AI still does NOT generate full solutions.
-
-> You write the code. The system helps you think.
 
 ---
 
