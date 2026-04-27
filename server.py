@@ -176,7 +176,7 @@ async def hint(req: HintRequest):
 async def review_start(req: ReviewRequest):
     if not req.weak_topics:
         async def empty():
-            yield "data: No weak areas detected. Keep it up!\\n\n\n"
+            yield "data: No weak areas detected. Keep it up!\n\n"
             yield "data: [DONE]\n\n"
         headers = {
             "Cache-Control": "no-cache",

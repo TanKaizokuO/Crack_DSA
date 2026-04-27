@@ -155,7 +155,19 @@ body {
 .ring-bg { fill: none; stroke: var(--border-default); stroke-width: 6; }
 .ring-prog { fill: none; stroke: var(--color-primary); stroke-width: 6; stroke-dasharray: 138.2; stroke-dashoffset: 138.2; transition: stroke-dashoffset 1s ease; stroke-linecap: round; }
 .score-text { fill: var(--text-main); font-family: 'Space Mono', monospace; font-size: 16px; text-anchor: middle; dominant-baseline: middle; font-weight: bold; }
+.msg.ai h1, .msg.ai h2, .msg.ai h3 { color: var(--color-primary); margin: 1rem 0 0.5rem; }
+.msg.ai ul, .msg.ai ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+.msg.ai li { margin-bottom: 0.3rem; }
+.msg.ai strong { color: var(--color-accent); }
+.msg.ai hr { border-color: var(--border-default); margin: 1rem 0; }
+.msg.ai table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+.msg.ai th, .msg.ai td { border: 1px solid var(--border-default); padding: 0.5rem 1rem; }
+.msg.ai th { background: var(--bg-surface-hover); color: var(--color-primary); }
+.review-session h1, .review-session h2, .review-session h3 { color: var(--color-primary); margin: 1rem 0 0.5rem; }
+.review-session ul, .review-session ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+.review-session strong { color: var(--color-accent); }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 </head>
 <body>
 <div class="sidebar">
@@ -283,6 +295,7 @@ navItems.forEach(item => {
     views.forEach(v => v.classList.remove('active'));
     item.classList.add('active');
     document.getElementById(`view-${item.dataset.view}`).classList.add('active');
+    if (item.dataset.view === 'review') prepareReview();
   });
 });
 
@@ -299,13 +312,15 @@ async function streamSSE(url, body, onToken, onDone) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\\n");
-    buffer = lines.pop(); 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const data = line.slice(6);
-      if (data === "[DONE]") { onDone?.(); return; }
-      onToken(data.replace(/\\\\n/g, "\\n"));
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop();
+    for (const part of parts) {
+      for (const line of part.split("\n")) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") { onDone?.(); return; }
+        onToken(data.replace(/\\n/g, "\n"));
+      }
     }
   }
 }
@@ -346,7 +361,7 @@ function renderDashboard() {
     if(subLearned === 0) { color = 'var(--bg-surface-hover)'; label = 'Not Started'; avg = 0; }
 
     list.innerHTML += `
-      <div class="topic-card" onclick="document.querySelector('.nav-item[data-view=\\'learn\\']').click()">
+      <div class="topic-card" onclick="document.querySelector(&quot;.nav-item[data-view='learn']&quot;).click()">
         <div>
           <div class="topic-info-title">${stepData.name}</div>
           <div class="topic-meta"><span>${subLearned}/${subCount} Learned</span></div>
@@ -367,10 +382,14 @@ function renderLearnTree() {
     let subsHtml = '';
     for (const subData of stepData.subtopics || []) {
       const isLearned = progress.subtopics_learned?.[subData.id] ? 'learned' : '';
-      subsHtml += `<div class="tree-subtopic ${isLearned}" data-id="${subData.id}" onclick="startLearn('${stepData.id}', '${subData.id}')">${subData.name}</div>`;
+      subsHtml += `<div class="tree-subtopic ${isLearned}" data-id="${subData.id}" data-step="${stepData.id}">${subData.name}</div>`;
     }
     tree.innerHTML += `<div class="tree-step open"><div class="tree-step-title">▶ ${stepData.name}</div><div class="tree-subtopics">${subsHtml}</div></div>`;
   }
+  document.getElementById('learnCurriculumTree').addEventListener('click', e => {
+    const el = e.target.closest('.tree-subtopic');
+    if (el) startLearn(el.dataset.step, el.dataset.id);
+  });
 }
 
 async function startLearn(stepId, subId) {
@@ -394,12 +413,12 @@ async function startLearn(stepId, subId) {
     problem_titles: (activeSubtopic.data.problems || []).map(p => p.name),
     history: []
   }, 
-  (token) => { aiMsg.innerText += token; hc.scrollTop = hc.scrollHeight; },
+  (token) => { aiMsg._raw = (aiMsg._raw || '') + token; aiMsg.innerHTML = marked.parse(aiMsg._raw); hc.scrollTop = hc.scrollHeight; },
   async () => {
-    learnHistory.push({ role: 'assistant', content: aiMsg.innerText });
+    learnHistory.push({ role: 'assistant', content: aiMsg._raw || '' });
     if (!progress.subtopics_learned?.[subId]) {
       await fetch('/api/progress/mark-learned', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({subtopic_id: subId})});
-      fetchData().then(renderDashboard);
+      fetchData().then(() => { renderDashboard(); prepareReview(); });
       document.querySelector(`.tree-subtopic[data-id="${subId}"]`).classList.add('learned');
     }
   });
@@ -423,8 +442,8 @@ async function sendLearn() {
   learnHistory.push({ role: 'user', content: txt });
 
   await streamSSE('/api/learn/qa', { topic: activeSubtopic.data.name, question: txt, history: currentHist }, 
-  (token) => { aiMsg.innerText += token; hc.scrollTop = hc.scrollHeight; },
-  () => { learnHistory.push({ role: 'assistant', content: aiMsg.innerText }); });
+  (token) => { aiMsg._raw = (aiMsg._raw || '') + token; aiMsg.innerHTML = marked.parse(aiMsg._raw); hc.scrollTop = hc.scrollHeight; },
+  () => { learnHistory.push({ role: 'assistant', content: aiMsg._raw || '' }); });
 }
 
 function renderPracticeList() {
@@ -434,10 +453,14 @@ function renderPracticeList() {
     for (const subData of stepData.subtopics || []) {
       for (const probData of subData.problems || []) {
         const dClass = (probData.difficulty || 'easy').toLowerCase();
-        pl.innerHTML += `<div class="problem-item" onclick="selProb('${stepData.id}','${subData.id}','${probData.id}')">${probData.name}<span class="badge ${dClass}">${probData.difficulty}</span></div>`;
+        pl.innerHTML += `<div class="problem-item" data-step="${stepData.id}" data-sub="${subData.id}" data-prob="${probData.id}">${probData.name}<span class="badge ${dClass}">${probData.difficulty}</span></div>`;
       }
     }
   }
+  document.getElementById('practiceProblemList').addEventListener('click', e => {
+    const el = e.target.closest('.problem-item');
+    if (el) selProb(el.dataset.step, el.dataset.sub, el.dataset.prob);
+  });
 }
 
 function selProb(stepId, subId, probId) {
@@ -464,15 +487,16 @@ async function evaluatePractice() {
   if(!approach) return;
 
   const evalC = document.getElementById('practiceEvalContent');
-  evalC.innerText = 'Evaluating...\\n\\n';
+  evalC.innerHTML = '<em style="color:var(--text-muted)">Evaluating…</em>';
+  evalC._raw = '';
   
   let fullOutput = '';
   await streamSSE('/api/practice/evaluate', {
     problem_title: activeProblem.data.name, difficulty: activeProblem.data.difficulty, approach: approach, history: []
   }, 
-  (token) => { evalC.innerText += token; fullOutput += token; },
+  (token) => { fullOutput += token; evalC._raw = (evalC._raw || '') + token; evalC.innerHTML = marked.parse(evalC._raw); },
   () => {
-    const match = fullOutput.match(/SCORE:\\s*(\\d+)/i);
+    const match = fullOutput.match(/SCORE:\s*(\d+)/i);
     let score = match ? parseInt(match[1]) : 0;
     
     document.getElementById('practiceScoreRing').style.display = 'block';
@@ -484,15 +508,17 @@ async function evaluatePractice() {
     fetch('/api/progress/record-attempt', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ problem_id: activeProblem.probId, subtopic_id: activeProblem.subId, score: score, session_log: [] })
-    }).then(() => fetchData().then(renderDashboard));
+    }).then(() => fetchData().then(() => { renderDashboard(); prepareReview(); }));
   });
 }
 
 function getHint(level) {
   if(!activeProblem) return;
   const evalC = document.getElementById('practiceEvalContent');
-  evalC.innerText += `\\n\\n--- HINT ${level} ---\\n`;
-  streamSSE('/api/practice/hint', { problem_title: activeProblem.data.name, hint_level: level }, (token) => { evalC.innerText += token; });
+  const hintSep = `\n\n---\n**Hint ${level}**\n`;
+  evalC._raw = (evalC._raw || '') + hintSep;
+  evalC.innerHTML = marked.parse(evalC._raw);
+  streamSSE('/api/practice/hint', { problem_title: activeProblem.data.name, hint_level: level }, (token) => { evalC._raw = (evalC._raw || '') + token; evalC.innerHTML = marked.parse(evalC._raw); });
 }
 
 function prepareReview() {
@@ -505,8 +531,9 @@ function prepareReview() {
 async function startReview() {
   const session = document.getElementById('reviewSessionContent');
   session.style.display = 'block';
-  session.innerText = 'Starting session...\\n\\n';
-  await streamSSE('/api/review/start', { weak_topics: weakTopics }, (token) => { session.innerText += token; });
+  session.innerHTML = '<em style="color:var(--text-muted)">Starting session…</em>';
+  session._raw = '';
+  await streamSSE('/api/review/start', { weak_topics: weakTopics }, (token) => { session._raw = (session._raw || '') + token; session.innerHTML = marked.parse(session._raw); });
 }
 
 init();
