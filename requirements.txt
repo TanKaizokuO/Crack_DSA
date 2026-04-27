@@ -1,0 +1,5 @@
+fastapi
+uvicorn[standard]
+langchain-nvidia-ai-endpoints
+langchain-core
+python-dotenv

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSA Coach</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-main: #0d0f14;
+  --bg-surface: #141720;
+  --bg-surface-hover: #1c2030;
+  --color-primary: #5eead4;
+  --color-user: #818cf8;
+  --color-accent: #fb923c;
+  --border-default: rgba(255, 255, 255, 0.07);
+  --border-focus: rgba(255, 255, 255, 0.13);
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background-color: var(--bg-main); color: var(--text-main);
+  font-family: 'Sora', sans-serif; display: flex; height: 100vh;
+  overflow: hidden;
+}
+.sidebar {
+  width: 260px; background-color: var(--bg-surface);
+  border-right: 1px solid var(--border-default);
+  display: flex; flex-direction: column; padding: 1.5rem;
+}
+.sidebar .logo { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--color-primary); }
+.sidebar .subtitle { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 2.5rem; }
+.nav-item {
+  padding: 0.75rem 1rem; border-radius: 6px; cursor: pointer;
+  margin-bottom: 0.5rem; color: var(--text-muted); transition: all 0.2s;
+}
+.nav-item:hover { background-color: var(--bg-surface-hover); color: var(--text-main); }
+.nav-item.active { background-color: var(--bg-surface-hover); color: var(--color-primary); font-weight: 600; }
+.sidebar-spacer { flex-grow: 1; }
+.streak-box {
+  background-color: var(--bg-surface-hover); padding: 1rem; border-radius: 8px; 
+  border: 1px solid var(--border-default); text-align: center; font-size: 0.9rem; 
+  color: var(--color-accent); font-weight: 600;
+}
+.main-content {
+  flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;
+}
+.view { display: none; height: 100%; width: 100%; }
+.view.active { display: flex; }
+
+/* Dashboard */
+.view-dashboard { padding: 2rem; overflow-y: auto; flex-direction: column; gap: 2rem; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.stat-card {
+  background: var(--bg-surface); border: 1px solid var(--border-default);
+  padding: 1.5rem; border-radius: 8px; text-align: center;
+}
+.stat-card .label { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+.stat-card .value { font-size: 1.8rem; font-weight: 600; font-family: 'Space Mono', monospace; }
+.curriculum-list { display: flex; flex-direction: column; gap: 1rem; }
+.topic-card {
+  background: var(--bg-surface); border: 1px solid var(--border-default);
+  padding: 1.5rem; border-radius: 8px; display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: all 0.2s;
+}
+.topic-card:hover { border-color: var(--border-focus); transform: translateY(-2px); }
+.topic-info-title { font-weight: 600; margin-bottom: 0.5rem; }
+.progress-container { width: 250px; background: var(--bg-main); height: 4px; border-radius: 4px; margin-right: 2rem;}
+.progress-bar { height: 100%; border-radius: 4px; }
+.topic-meta { display: flex; align-items: center; gap: 1.5rem; font-family: 'Space Mono', monospace; font-size: 0.85rem; }
+
+/* Learn */
+.view-learn { flex-direction: row; }
+.learn-sidebar { 
+  width: 300px; background: var(--bg-surface); border-right: 1px solid var(--border-default); 
+  overflow-y: auto; padding: 1rem;
+}
+.curriculum-tree { font-size: 0.9rem; }
+.tree-step { margin-bottom: 1rem; }
+.tree-step-title { font-weight: 600; padding: 0.5rem; cursor: pointer; color: var(--text-muted); }
+.tree-step-title.active { color: var(--color-primary); }
+.tree-subtopics { padding-left: 1rem; display: none; }
+.tree-step.open .tree-subtopics { display: block; }
+.tree-subtopic {
+  padding: 0.5rem; padding-left: 1.5rem; cursor: pointer; color: var(--text-muted);
+  border-left: 1px solid var(--border-default); position: relative;
+}
+.tree-subtopic:before {
+  content: '○'; position: absolute; left: 0; transform: translateX(-50%);
+  background: var(--bg-surface); color: var(--text-muted); font-size: 0.7rem;
+}
+.tree-subtopic.learned:before { content: '●'; color: #4ade80; }
+.tree-subtopic:hover, .tree-subtopic.active { color: var(--text-main); }
+.tree-subtopic.active { background: rgba(255,255,255,0.03); }
+
+.chat-container { flex-grow: 1; display: flex; flex-direction: column; background: var(--bg-main); width: 100%; }
+.chat-history { flex-grow: 1; overflow-y: auto; padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; }
+.msg { max-width: 80%; padding: 1rem 1.5rem; border-radius: 8px; line-height: 1.6; white-space: pre-wrap; font-family: 'Sora', sans-serif;}
+.msg.user { background: var(--bg-surface-hover); color: var(--color-user); align-self: flex-end; border-bottom-right-radius: 0; }
+.msg.ai { background: var(--bg-surface); border: 1px solid var(--border-default); align-self: flex-start; border-bottom-left-radius: 0; }
+.msg pre { font-family: 'Space Mono', monospace; background: var(--bg-main); padding: 1rem; border-radius: 6px; overflow-x: auto; margin-top: 0.8rem; }
+.msg code { font-family: 'Space Mono', monospace; color: var(--color-accent); font-size: 0.9em; background: rgba(255,255,255,0.05); padding: 0.1em 0.3em; border-radius: 3px; }
+.chat-input-area { padding: 1.5rem 2rem; border-top: 1px solid var(--border-default); background: var(--bg-surface); }
+.quick-actions { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.btn-quick { background: var(--bg-main); border: 1px solid var(--border-default); color: var(--text-muted); padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.8rem; cursor: pointer; transition: 0.2s; }
+.btn-quick:hover { color: var(--color-primary); border-color: var(--color-primary); }
+.input-row { display: flex; gap: 1rem; }
+.chat-input { flex-grow: 1; background: var(--bg-main); border: 1px solid var(--border-default); color: var(--text-main); padding: 1rem; border-radius: 8px; font-family: 'Sora', sans-serif; resize: none; outline: none; }
+.chat-input:focus { border-color: var(--border-focus); }
+.btn-send { background: var(--color-primary); color: #000; border: none; padding: 0 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-send:hover { opacity: 0.9; }
+
+/* Practice */
+.view-practice { flex-direction: row; }
+.problem-list-sidebar { width: 300px; background: var(--bg-surface); border-right: 1px solid var(--border-default); overflow-y: auto; }
+.problem-list-header { padding: 1.5rem 1rem 0.5rem; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-default); }
+.problem-item { padding: 1rem; border-bottom: 1px solid var(--border-default); cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
+.problem-item:hover, .problem-item.active { background: var(--bg-surface-hover); }
+.badge { font-family: 'Space Mono', monospace; font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 12px; }
+.badge.easy { color: #4ade80; background: rgba(74, 222, 128, 0.12); }
+.badge.medium { color: #facc15; background: rgba(250, 204, 21, 0.12); }
+.badge.hard { color: #f87171; background: rgba(248, 113, 113, 0.12); }
+
+.practice-workspace { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; padding: 2rem; gap: 1.5rem; }
+.practice-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-default); }
+.practice-header h2 { font-weight: 600; font-size: 1.5rem; display: flex; gap: 1rem; align-items: center; }
+.practice-subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; font-family: 'Space Mono', monospace; }
+.practice-editor { display: flex; gap: 2rem; flex-grow: 1; overflow: hidden; }
+.practice-input-section { flex: 1; display: flex; flex-direction: column; gap: 1rem; }
+.practice-textarea { flex-grow: 1; background: var(--bg-surface); border: 1px solid var(--border-default); color: var(--text-main); padding: 1rem; border-radius: 8px; font-family: 'Sora', sans-serif; resize: none; outline: none; line-height: 1.6; }
+.practice-actions { display: flex; gap: 1rem; margin-top: auto; }
+.btn-eval { background: var(--color-primary); color: #000; border: none; padding: 0.8rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; flex-grow: 1; text-align: center; }
+.hints { display: flex; gap: 0.5rem; }
+.btn-hint { background: transparent; border: 1px solid var(--color-accent); color: var(--color-accent); padding: 0.8rem; border-radius: 8px; cursor: pointer; font-family: 'Space Mono', monospace; transition: 0.2s;}
+.btn-hint:hover { background: rgba(251, 146, 60, 0.1); }
+
+.evaluation-panel { flex: 1; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 8px; padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; }
+.eval-header { color: var(--text-muted); font-weight: 600; margin-bottom: 1.5rem; font-family: 'Space Mono', monospace; letter-spacing: 1px; }
+
+/* Review */
+.view-review { flex-direction: column; padding: 3rem; align-items: center; }
+.review-header { text-align: center; margin-bottom: 3rem; }
+.review-header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+.weak-chips { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1rem; flex-wrap: wrap; max-width: 600px; }
+.chip { background: rgba(248, 113, 113, 0.15); color: #f87171; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem; border: 1px solid rgba(248, 113, 113, 0.3); }
+.btn-start-review { background: var(--color-primary); color: #000; padding: 1rem 3rem; border: none; border-radius: 30px; font-weight: 600; font-size: 1.1rem; cursor: pointer; margin-top: 2rem; transition: 0.2s;}
+.btn-start-review:hover { opacity: 0.9; }
+.review-session { width: 100%; max-width: 800px; margin-top: 3rem; background: var(--bg-surface); padding: 2rem; border-radius: 8px; border: 1px solid var(--border-default); display: none; line-height: 1.6; }
+
+.text-red { color: #f87171 !important; }
+
+/* SVG Ring */
+.score-ring { width: 60px; height: 60px; }
+.ring-bg { fill: none; stroke: var(--border-default); stroke-width: 6; }
+.ring-prog { fill: none; stroke: var(--color-primary); stroke-width: 6; stroke-dasharray: 138.2; stroke-dashoffset: 138.2; transition: stroke-dashoffset 1s ease; stroke-linecap: round; }
+.score-text { fill: var(--text-main); font-family: 'Space Mono', monospace; font-size: 16px; text-anchor: middle; dominant-baseline: middle; font-weight: bold; }
+</style>
+</head>
+<body>
+<div class="sidebar">
+  <div class="logo">DSA Coach</div>
+  <div class="subtitle">Striver's A2Z</div>
+  
+  <div class="nav-item active" data-view="dashboard">▣ Dashboard</div>
+  <div class="nav-item" data-view="learn">📚 Learn</div>
+  <div class="nav-item" data-view="practice">🎯 Practice</div>
+  <div class="nav-item" data-view="review">🔄 Review</div>
+  
+  <div class="sidebar-spacer"></div>
+  <div class="streak-box">🔥 streak: <span id="streakCount">0</span> days</div>
+</div>
+
+<div class="main-content">
+  <!-- DASHBOARD -->
+  <div class="view view-dashboard active" id="view-dashboard">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="label">Learned</div><div class="value" id="statLearned">0</div></div>
+      <div class="stat-card"><div class="label">Problems</div><div class="value" id="statProblems">0</div></div>
+      <div class="stat-card"><div class="label">Avg Score</div><div class="value" id="statScore">0%</div></div>
+      <div class="stat-card"><div class="label">Weak Areas</div><div class="value text-red" id="statWeak">0</div></div>
+    </div>
+    <h3>Curriculum Progress</h3>
+    <div class="curriculum-list" id="dashboardCurriculumList"></div>
+  </div>
+
+  <!-- LEARN -->
+  <div class="view view-learn" id="view-learn">
+    <div class="learn-sidebar"><div class="curriculum-tree" id="learnCurriculumTree"></div></div>
+    <div class="chat-container">
+      <div class="chat-history" id="learnChatHistory"></div>
+      <div class="chat-input-area">
+        <div class="quick-actions">
+          <button class="btn-quick" onclick="sendLearnQuick('💡 Explain with an analogy')">💡 Analogy</button>
+          <button class="btn-quick" onclick="sendLearnQuick('⚠ What are the common pitfalls?')">⚠ Pitfalls</button>
+          <button class="btn-quick" onclick="sendLearnQuick('⏱ What is the Time and Space Complexity?')">⏱ TC & SC</button>
+        </div>
+        <div class="input-row">
+          <textarea id="learnInput" class="chat-input" placeholder="Ask a follow-up question..." rows="1"></textarea>
+          <button class="btn-send" onclick="sendLearn()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRACTICE -->
+  <div class="view view-practice" id="view-practice">
+    <div class="problem-list-sidebar">
+      <div class="problem-list-header">Problems</div>
+      <div id="practiceProblemList"></div>
+    </div>
+    <div class="practice-workspace">
+      <div class="practice-header">
+        <div>
+          <h2 id="practiceProblemTitle">Select a Problem <span class="badge" id="practiceProblemDifficulty" style="display:none;"></span></h2>
+          <div class="practice-subtitle" id="practiceProblemMeta"></div>
+        </div>
+        <div>
+          <svg class="score-ring" id="practiceScoreRing" style="display:none;" viewBox="0 0 50 50">
+            <circle class="ring-bg" cx="25" cy="25" r="22"></circle>
+            <circle class="ring-prog" cx="25" cy="25" r="22" id="practiceScoreCircle"></circle>
+            <text x="25" y="27" class="score-text" id="practiceScoreText">0</text>
+          </svg>
+        </div>
+      </div>
+      <div class="practice-editor">
+        <div class="practice-input-section">
+          <div class="eval-header">Your Approach</div>
+          <textarea id="practiceInput" class="practice-textarea" placeholder="Describe logic, data structures, and edge cases here..."></textarea>
+          <div class="practice-actions">
+            <button class="btn-eval" onclick="evaluatePractice()">Evaluate</button>
+            <div class="hints">
+              <button class="btn-hint" onclick="getHint(1)">Hint 1</button>
+              <button class="btn-hint" onclick="getHint(2)">Hint 2</button>
+              <button class="btn-hint" onclick="getHint(3)">Hint 3</button>
+            </div>
+          </div>
+        </div>
+        <div class="evaluation-panel">
+          <div class="eval-header">── Evaluation ──</div>
+          <div id="practiceEvalContent" style="white-space: pre-wrap; font-family: 'Space Mono', monospace; font-size: 0.9rem;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVIEW -->
+  <div class="view view-review" id="view-review">
+    <div class="review-header">
+      <h1>Weak Area Review</h1>
+      <p style="color: var(--text-muted);">Targeting topics scoring below 60%</p>
+      <div class="weak-chips" id="reviewWeakChips"></div>
+      <button class="btn-start-review" onclick="startReview()">Start Review Session</button>
+    </div>
+    <div class="review-session" id="reviewSessionContent"></div>
+  </div>
+</div>
+
+<script>
+let curriculum = {}, progress = {}, activeSubtopic = null, activeProblem = null, learnHistory = [], weakTopics = [];
+
+const views = document.querySelectorAll('.view');
+const navItems = document.querySelectorAll('.nav-item');
+
+async function init() {
+  await fetchData();
+  renderDashboard();
+  renderLearnTree();
+  renderPracticeList();
+  prepareReview();
+}
+
+async function fetchData() {
+  const reqCur = await fetch('/api/curriculum');
+  if(reqCur.ok) curriculum = await reqCur.json();
+  const reqProg = await fetch('/api/progress');
+  if(reqProg.ok) progress = await reqProg.json();
+}
+
+navItems.forEach(item => {
+  item.addEventListener('click', () => {
+    navItems.forEach(n => n.classList.remove('active'));
+    views.forEach(v => v.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById(`view-${item.dataset.view}`).classList.add('active');
+  });
+});
+
+async function streamSSE(url, body, onToken, onDone) {
+  const resp = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\\n");
+    buffer = lines.pop(); 
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6);
+      if (data === "[DONE]") { onDone?.(); return; }
+      onToken(data.replace(/\\\\n/g, "\\n"));
+    }
+  }
+}
+
+function renderDashboard() {
+  document.getElementById('streakCount').innerText = progress.streak || 0;
+  
+  let totalLearned = Object.keys(progress.subtopics_learned || {}).length;
+  let totalProblems = Object.keys(progress.problems || {}).length;
+  let scoreSum = 0, scoreCount = 0;
+  weakTopics = [];
+
+  for(const [topicId, score] of Object.entries(progress.scores || {})) {
+    scoreSum += score;
+    scoreCount++;
+    if(score < 60) weakTopics.push(topicId);
+  }
+  
+  document.getElementById('statLearned').innerText = totalLearned;
+  document.getElementById('statProblems').innerText = totalProblems;
+  document.getElementById('statScore').innerText = scoreCount ? Math.round(scoreSum / scoreCount) + '%' : '0%';
+  document.getElementById('statWeak').innerText = weakTopics.length;
+
+  const list = document.getElementById('dashboardCurriculumList');
+  list.innerHTML = '';
+
+  for (const [stepId, stepData] of Object.entries(curriculum.steps || {})) {
+    let subCount = Object.keys(stepData.subtopics || {}).length;
+    let subLearned = 0, stepScore = 0;
+    
+    for (const subId of Object.keys(stepData.subtopics || {})) {
+       if (progress.subtopics_learned?.[subId]) subLearned++;
+       stepScore += (progress.scores?.[subId] || 0);
+    }
+    let avg = Math.round(stepScore / (subCount || 1));
+    let color = avg >= 80 ? '#4ade80' : avg >= 60 ? '#facc15' : '#f87171';
+    let label = avg >= 80 ? '✅ Strong' : avg >= 60 ? '🔄 Review' : '⚠ Weak';
+    if(subLearned === 0) { color = 'var(--bg-surface-hover)'; label = 'Not Started'; avg = 0; }
+
+    list.innerHTML += `
+      <div class="topic-card" onclick="document.querySelector('.nav-item[data-view=\\'learn\\']').click()">
+        <div>
+          <div class="topic-info-title">${stepData.title}</div>
+          <div class="topic-meta"><span>${subLearned}/${subCount} Learned</span></div>
+        </div>
+        <div class="topic-meta">
+          <div class="progress-container"><div class="progress-bar" style="width: ${avg}%; background-color: ${color}"></div></div>
+          <span style="color: ${color}; width: 80px; text-align: right;">${avg}%  ${label}</span>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function renderLearnTree() {
+  const tree = document.getElementById('learnCurriculumTree');
+  tree.innerHTML = '';
+  for (const [stepId, stepData] of Object.entries(curriculum.steps || {})) {
+    let subsHtml = '';
+    for (const [subId, subData] of Object.entries(stepData.subtopics || {})) {
+      const isLearned = progress.subtopics_learned?.[subId] ? 'learned' : '';
+      subsHtml += `<div class="tree-subtopic ${isLearned}" data-id="${subId}" onclick="startLearn('${stepId}', '${subId}')">${subData.title}</div>`;
+    }
+    tree.innerHTML += `<div class="tree-step open"><div class="tree-step-title">▶ ${stepData.title}</div><div class="tree-subtopics">${subsHtml}</div></div>`;
+  }
+}
+
+async function startLearn(stepId, subId) {
+  document.querySelectorAll('.tree-subtopic').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.tree-subtopic[data-id="${subId}"]`).classList.add('active');
+  
+  activeSubtopic = { stepId, subId, data: curriculum.steps[stepId].subtopics[subId] };
+  learnHistory = [];
+  const hc = document.getElementById('learnChatHistory');
+  hc.innerHTML = '';
+  
+  const aiMsg = document.createElement('div'); aiMsg.className = 'msg ai'; hc.appendChild(aiMsg);
+
+  await streamSSE('/api/learn/start', {
+    subtopic_title: activeSubtopic.data.title,
+    concepts: activeSubtopic.data.concepts || [],
+    problem_titles: Object.values(activeSubtopic.data.problems || {}).map(p => p.title),
+    history: []
+  }, 
+  (token) => { aiMsg.innerText += token; hc.scrollTop = hc.scrollHeight; },
+  async () => {
+    learnHistory.push({ role: 'assistant', content: aiMsg.innerText });
+    if (!progress.subtopics_learned?.[subId]) {
+      await fetch('/api/progress/mark-learned', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({subtopic_id: subId})});
+      fetchData().then(renderDashboard);
+      document.querySelector(`.tree-subtopic[data-id="${subId}"]`).classList.add('learned');
+    }
+  });
+}
+
+function sendLearnQuick(text) { document.getElementById('learnInput').value = text; sendLearn(); }
+
+async function sendLearn() {
+  if(!activeSubtopic) return;
+  const input = document.getElementById('learnInput');
+  const txt = input.value.trim();
+  if(!txt) return;
+  input.value = '';
+
+  const hc = document.getElementById('learnChatHistory');
+  const uMsg = document.createElement('div'); uMsg.className = 'msg user'; uMsg.innerText = txt; hc.appendChild(uMsg);
+  const aiMsg = document.createElement('div'); aiMsg.className = 'msg ai'; hc.appendChild(aiMsg);
+  hc.scrollTop = hc.scrollHeight;
+
+  const currentHist = [...learnHistory];
+  learnHistory.push({ role: 'user', content: txt });
+
+  await streamSSE('/api/learn/qa', { topic: activeSubtopic.data.title, question: txt, history: currentHist }, 
+  (token) => { aiMsg.innerText += token; hc.scrollTop = hc.scrollHeight; },
+  () => { learnHistory.push({ role: 'assistant', content: aiMsg.innerText }); });
+}
+
+function renderPracticeList() {
+  const pl = document.getElementById('practiceProblemList');
+  pl.innerHTML = '';
+  for (const [stepId, stepData] of Object.entries(curriculum.steps || {})) {
+    for (const [subId, subData] of Object.entries(stepData.subtopics || {})) {
+      for (const [probId, probData] of Object.entries(subData.problems || {})) {
+        const dClass = probData.difficulty.toLowerCase();
+        pl.innerHTML += `<div class="problem-item" onclick="selProb('${stepId}','${subId}','${probId}')">${probData.title}<span class="badge ${dClass}">${probData.difficulty}</span></div>`;
+      }
+    }
+  }
+}
+
+function selProb(stepId, subId, probId) {
+  activeProblem = { stepId, subId, probId, data: curriculum.steps[stepId].subtopics[subId].problems[probId] };
+  const pd = activeProblem.data;
+  const b = document.getElementById('practiceProblemDifficulty');
+  b.style.display = 'inline-block';
+  b.className = `badge ${pd.difficulty.toLowerCase()}`;
+  b.innerText = pd.difficulty;
+  document.getElementById('practiceProblemTitle').childNodes[0].nodeValue = pd.title + " ";
+  
+  const prog = progress.problems?.[probId] || { attempts: 0 };
+  document.getElementById('practiceProblemMeta').innerText = `ID: ${probId} · ${prog.attempts} attempts`;
+  document.getElementById('practiceInput').value = '';
+  document.getElementById('practiceEvalContent').innerText = '';
+  document.getElementById('practiceScoreRing').style.display = 'none';
+}
+
+async function evaluatePractice() {
+  if(!activeProblem) return;
+  const approach = document.getElementById('practiceInput').value.trim();
+  if(!approach) return;
+
+  const evalC = document.getElementById('practiceEvalContent');
+  evalC.innerText = 'Evaluating...\\n\\n';
+  
+  let fullOutput = '';
+  await streamSSE('/api/practice/evaluate', {
+    problem_title: activeProblem.data.title, difficulty: activeProblem.data.difficulty, approach: approach, history: []
+  }, 
+  (token) => { evalC.innerText += token; fullOutput += token; },
+  () => {
+    const match = fullOutput.match(/SCORE:\\s*(\\d+)/i);
+    let score = match ? parseInt(match[1]) : 0;
+    
+    document.getElementById('practiceScoreRing').style.display = 'block';
+    const circle = document.getElementById('practiceScoreCircle');
+    circle.style.strokeDashoffset = 138.2 - (score / 100) * 138.2;
+    circle.style.stroke = score >= 80 ? '#4ade80' : score >= 60 ? '#facc15' : '#f87171';
+    document.getElementById('practiceScoreText').textContent = score;
+
+    fetch('/api/progress/record-attempt', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ problem_id: activeProblem.probId, subtopic_id: activeProblem.subId, score: score, session_log: [] })
+    }).then(() => fetchData().then(renderDashboard));
+  });
+}
+
+function getHint(level) {
+  if(!activeProblem) return;
+  const evalC = document.getElementById('practiceEvalContent');
+  evalC.innerText += `\\n\\n--- HINT ${level} ---\\n`;
+  streamSSE('/api/practice/hint', { problem_title: activeProblem.data.title, hint_level: level }, (token) => { evalC.innerText += token; });
+}
+
+function prepareReview() {
+  const chips = document.getElementById('reviewWeakChips');
+  chips.innerHTML = '';
+  weakTopics.forEach(w => chips.innerHTML += `<div class="chip">${w}</div>`);
+  if(weakTopics.length === 0) chips.innerHTML = `<div style="color: #4ade80;">No weak areas detected!</div>`;
+}
+
+async function startReview() {
+  const session = document.getElementById('reviewSessionContent');
+  session.style.display = 'block';
+  session.innerText = 'Starting session...\\n\\n';
+  await streamSSE('/api/review/start', { weak_topics: weakTopics }, (token) => { session.innerText += token; });
+}
+
+init();
+</script>
+</body>
+</html>
