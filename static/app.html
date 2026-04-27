@@ -332,13 +332,13 @@ function renderDashboard() {
   const list = document.getElementById('dashboardCurriculumList');
   list.innerHTML = '';
 
-  for (const [stepId, stepData] of Object.entries(curriculum.steps || {})) {
-    let subCount = Object.keys(stepData.subtopics || {}).length;
+  for (const stepData of curriculum.steps || []) {
+    let subCount = (stepData.subtopics || []).length;
     let subLearned = 0, stepScore = 0;
     
-    for (const subId of Object.keys(stepData.subtopics || {})) {
-       if (progress.subtopics_learned?.[subId]) subLearned++;
-       stepScore += (progress.scores?.[subId] || 0);
+    for (const subData of stepData.subtopics || []) {
+       if (progress.subtopics_learned?.[subData.id]) subLearned++;
+       stepScore += (progress.scores?.[subData.id] || 0);
     }
     let avg = Math.round(stepScore / (subCount || 1));
     let color = avg >= 80 ? '#4ade80' : avg >= 60 ? '#facc15' : '#f87171';
@@ -348,7 +348,7 @@ function renderDashboard() {
     list.innerHTML += `
       <div class="topic-card" onclick="document.querySelector('.nav-item[data-view=\\'learn\\']').click()">
         <div>
-          <div class="topic-info-title">${stepData.title}</div>
+          <div class="topic-info-title">${stepData.name}</div>
           <div class="topic-meta"><span>${subLearned}/${subCount} Learned</span></div>
         </div>
         <div class="topic-meta">
@@ -363,13 +363,13 @@ function renderDashboard() {
 function renderLearnTree() {
   const tree = document.getElementById('learnCurriculumTree');
   tree.innerHTML = '';
-  for (const [stepId, stepData] of Object.entries(curriculum.steps || {})) {
+  for (const stepData of curriculum.steps || []) {
     let subsHtml = '';
-    for (const [subId, subData] of Object.entries(stepData.subtopics || {})) {
-      const isLearned = progress.subtopics_learned?.[subId] ? 'learned' : '';
-      subsHtml += `<div class="tree-subtopic ${isLearned}" data-id="${subId}" onclick="startLearn('${stepId}', '${subId}')">${subData.title}</div>`;
+    for (const subData of stepData.subtopics || []) {
+      const isLearned = progress.subtopics_learned?.[subData.id] ? 'learned' : '';
+      subsHtml += `<div class="tree-subtopic ${isLearned}" data-id="${subData.id}" onclick="startLearn('${stepData.id}', '${subData.id}')">${subData.name}</div>`;
     }
-    tree.innerHTML += `<div class="tree-step open"><div class="tree-step-title">▶ ${stepData.title}</div><div class="tree-subtopics">${subsHtml}</div></div>`;
+    tree.innerHTML += `<div class="tree-step open"><div class="tree-step-title">▶ ${stepData.name}</div><div class="tree-subtopics">${subsHtml}</div></div>`;
   }
 }
 
@@ -377,17 +377,21 @@ async function startLearn(stepId, subId) {
   document.querySelectorAll('.tree-subtopic').forEach(el => el.classList.remove('active'));
   document.querySelector(`.tree-subtopic[data-id="${subId}"]`).classList.add('active');
   
-  activeSubtopic = { stepId, subId, data: curriculum.steps[stepId].subtopics[subId] };
+  let stepData = curriculum.steps.find(s => s.id == stepId);
+  activeSubtopic = { stepId, subId, data: stepData.subtopics.find(s => s.id == subId) };
   learnHistory = [];
   const hc = document.getElementById('learnChatHistory');
   hc.innerHTML = '';
   
   const aiMsg = document.createElement('div'); aiMsg.className = 'msg ai'; hc.appendChild(aiMsg);
 
+  let conceptsList = new Set();
+  (activeSubtopic.data.problems || []).forEach(p => (p.key_concepts || []).forEach(c => conceptsList.add(c)));
+
   await streamSSE('/api/learn/start', {
-    subtopic_title: activeSubtopic.data.title,
-    concepts: activeSubtopic.data.concepts || [],
-    problem_titles: Object.values(activeSubtopic.data.problems || {}).map(p => p.title),
+    subtopic_title: activeSubtopic.data.name,
+    concepts: Array.from(conceptsList),
+    problem_titles: (activeSubtopic.data.problems || []).map(p => p.name),
     history: []
   }, 
   (token) => { aiMsg.innerText += token; hc.scrollTop = hc.scrollHeight; },
@@ -418,7 +422,7 @@ async function sendLearn() {
   const currentHist = [...learnHistory];
   learnHistory.push({ role: 'user', content: txt });
 
-  await streamSSE('/api/learn/qa', { topic: activeSubtopic.data.title, question: txt, history: currentHist }, 
+  await streamSSE('/api/learn/qa', { topic: activeSubtopic.data.name, question: txt, history: currentHist }, 
   (token) => { aiMsg.innerText += token; hc.scrollTop = hc.scrollHeight; },
   () => { learnHistory.push({ role: 'assistant', content: aiMsg.innerText }); });
 }
@@ -426,24 +430,26 @@ async function sendLearn() {
 function renderPracticeList() {
   const pl = document.getElementById('practiceProblemList');
   pl.innerHTML = '';
-  for (const [stepId, stepData] of Object.entries(curriculum.steps || {})) {
-    for (const [subId, subData] of Object.entries(stepData.subtopics || {})) {
-      for (const [probId, probData] of Object.entries(subData.problems || {})) {
-        const dClass = probData.difficulty.toLowerCase();
-        pl.innerHTML += `<div class="problem-item" onclick="selProb('${stepId}','${subId}','${probId}')">${probData.title}<span class="badge ${dClass}">${probData.difficulty}</span></div>`;
+  for (const stepData of curriculum.steps || []) {
+    for (const subData of stepData.subtopics || []) {
+      for (const probData of subData.problems || []) {
+        const dClass = (probData.difficulty || 'easy').toLowerCase();
+        pl.innerHTML += `<div class="problem-item" onclick="selProb('${stepData.id}','${subData.id}','${probData.id}')">${probData.name}<span class="badge ${dClass}">${probData.difficulty}</span></div>`;
       }
     }
   }
 }
 
 function selProb(stepId, subId, probId) {
-  activeProblem = { stepId, subId, probId, data: curriculum.steps[stepId].subtopics[subId].problems[probId] };
+  let stepData = curriculum.steps.find(s => s.id == stepId);
+  let subData = stepData.subtopics.find(s => s.id == subId);
+  activeProblem = { stepId, subId, probId, data: subData.problems.find(p => p.id == probId) };
   const pd = activeProblem.data;
   const b = document.getElementById('practiceProblemDifficulty');
   b.style.display = 'inline-block';
-  b.className = `badge ${pd.difficulty.toLowerCase()}`;
+  b.className = `badge ${(pd.difficulty || 'easy').toLowerCase()}`;
   b.innerText = pd.difficulty;
-  document.getElementById('practiceProblemTitle').childNodes[0].nodeValue = pd.title + " ";
+  document.getElementById('practiceProblemTitle').childNodes[0].nodeValue = pd.name + " ";
   
   const prog = progress.problems?.[probId] || { attempts: 0 };
   document.getElementById('practiceProblemMeta').innerText = `ID: ${probId} · ${prog.attempts} attempts`;
@@ -462,7 +468,7 @@ async function evaluatePractice() {
   
   let fullOutput = '';
   await streamSSE('/api/practice/evaluate', {
-    problem_title: activeProblem.data.title, difficulty: activeProblem.data.difficulty, approach: approach, history: []
+    problem_title: activeProblem.data.name, difficulty: activeProblem.data.difficulty, approach: approach, history: []
   }, 
   (token) => { evalC.innerText += token; fullOutput += token; },
   () => {
@@ -486,7 +492,7 @@ function getHint(level) {
   if(!activeProblem) return;
   const evalC = document.getElementById('practiceEvalContent');
   evalC.innerText += `\\n\\n--- HINT ${level} ---\\n`;
-  streamSSE('/api/practice/hint', { problem_title: activeProblem.data.title, hint_level: level }, (token) => { evalC.innerText += token; });
+  streamSSE('/api/practice/hint', { problem_title: activeProblem.data.name, hint_level: level }, (token) => { evalC.innerText += token; });
 }
 
 function prepareReview() {
